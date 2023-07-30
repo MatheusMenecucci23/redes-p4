@@ -35,18 +35,19 @@ class CamadaEnlace:
         self.enlaces[next_hop].enviar(datagrama)
 
     def _callback(self, datagrama):
-        if self.callback:
-            self.callback(datagrama)
-
-
+        try:
+            if self.callback:
+                self.callback(datagrama)
+        except Exception as e:
+            print("Ocorreu uma exceção durante o callback:", e)
+            
 class Enlace:
     def __init__(self, linha_serial):
         self.linha_serial = linha_serial
         self.linha_serial.registrar_recebedor(self.__raw_recv)
 
         self.residual = b''
-          # Variável de estado para reconhecimento do início e fim do quadro
-        self.estado = "ocioso"
+
 
     def registrar_recebedor(self, callback):
         self.callback = callback
@@ -79,7 +80,9 @@ class Enlace:
 
         # Divide os dados em quadros completos
         quadros_completos = dados.split(b'\xC0')
-    
+
+        # Se o último byte for 0xC0, significa que temos um quadro completo
+        # Caso contrário, armazena o quadro incompleto nos dados residuais
         if dados[-1:] == b'\xC0':
             self.residual = b''
         else:
@@ -95,8 +98,4 @@ class Enlace:
                 quadro = quadro.replace(b'\xDB\xDC', b'\xC0')
             
                 # Chama o callback com o quadro completo
-                self.callback(quadro)
-
-        # Descarta quadros vazios para melhorar a eficiência da implementação
-        if not dados:
-            self.residual = b''
+                self.callback(quadro)        
