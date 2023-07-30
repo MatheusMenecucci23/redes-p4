@@ -51,9 +51,13 @@ class Enlace:
         # TODO: Preencha aqui com o código para enviar o datagrama pela linha
         # serial, fazendo corretamente a delimitação de quadros e o escape de
         # sequências especiais, de acordo com o protocolo CamadaEnlace (RFC 1055).
-        datagrama_slip = b'\xC0' + datagrama + b'\xC0'
-
-
+        datagrama_slip = datagrama.replace(b'\xDB', b'\xDB\xDD')
+        datagrama_slip = datagrama_slip.replace(b'\xC0', b'\xDB\xDC')
+        
+        # Adicionar o byte 0xC0 no começo e no fim do datagrama
+        datagrama_slip = b'\xC0' + datagrama_slip + b'\xC0'
+        
+        # Enviar o datagrama SLIP pela linha serial
         self.linha_serial.enviar(datagrama_slip)
 
 
@@ -66,4 +70,25 @@ class Enlace:
         # vir quebrado de várias formas diferentes - por exemplo, podem vir
         # apenas pedaços de um quadro, ou um pedaço de quadro seguido de um
         # pedaço de outro, ou vários quadros de uma vez só.
+        datagrama_slip = b''
+        i = 0
+        while i < len(dados):
+            if dados[i:i+2] == b'\xDB\xDC':
+                datagrama_slip += b'\xC0'
+                i += 2
+            elif dados[i:i+2] == b'\xDB\xDD':
+                datagrama_slip += b'\xDB'
+                i += 2
+            else:
+                datagrama_slip += dados[i:i+1]
+                i += 1
+
+        # Verificar se o datagrama recebido é completo (começa e termina com 0xC0)
+        if datagrama_slip.startswith(b'\xC0') and datagrama_slip.endswith(b'\xC0'):
+            # Remover o byte 0xC0 do começo e do fim do datagrama
+            datagrama_slip = datagrama_slip[1:-1]
+
+            # Chamar o callback para repassar o datagrama para a camada superior
+            if self.callback:
+                self.callback(datagrama_slip)
         pass
